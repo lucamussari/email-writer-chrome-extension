@@ -4,11 +4,13 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <h1>ChatGPT Email Reviewer</h1>
+    <h1>Email Writer Chrome Extension</h1>
     <div class="settings-section">
-      <p>Enter your OpenAI API key:</p>
+      <p>Enter your OpenRouter API key:</p>
       <input type="password" id="apiKeyInput" placeholder="API Key" readonly>
       <button id="editApiKeyButton">Edit</button>
+      <p>OpenRouter model ID (e.g. openai/gpt-4o-mini, anthropic/claude-3.5-sonnet):</p>
+      <input type="text" id="modelInput" placeholder="openai/gpt-4o-mini" autocomplete="off" spellcheck="false">
       <p>Enter the delimiter for your signature:</p>
       <input type="text" id="signatureDelimiter" placeholder="--">
       <button id="saveButton">Save Settings</button>
@@ -26,6 +28,5 @@
     </form>
     <button id="reviewButton" class="review-button">Review Email</button>
     <script src="popup.js"></script>
-    <p><a href="https://github.com/sponsors/hummusonrails" target="_blank">Support this work by sponsoring me on GitHub</a></p>
   </body>
 </html>

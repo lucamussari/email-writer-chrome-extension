@@ -1,13 +1,18 @@
+const DEFAULT_MODEL = 'openai/gpt-4o-mini';
+
 const apiKeyInput = document.getElementById('apiKeyInput');
+const modelInput = document.getElementById('modelInput');
 const signatureDelimiterInput = document.getElementById('signatureDelimiter');
 const editApiKeyButton = document.getElementById('editApiKeyButton');
 const saveButton = document.getElementById('saveButton');
 
 saveButton.addEventListener("click", () => {
   const apiKey = apiKeyInput.value;
+  const model = modelInput.value.trim() || DEFAULT_MODEL;
   const signatureDelimiter = signatureDelimiterInput.value;
-  chrome.storage.sync.set({ apiKey, signatureDelimiter }, () => {
-    alert("API key and signature delimiter saved.");
+  chrome.storage.sync.set({ apiKey, model, signatureDelimiter }, () => {
+    modelInput.value = model;
+    alert("Settings saved.");
     apiKeyInput.readOnly = true;
     apiKeyInput.type = 'password';
   });
@@ -21,8 +26,9 @@ document.getElementById("reviewButton").addEventListener("click", () => {
   });
 });
 
-chrome.storage.sync.get(["apiKey", "signatureDelimiter"], result => {
+chrome.storage.sync.get(["apiKey", "model", "signatureDelimiter"], result => {
   apiKeyInput.value = result.apiKey || '';
+  modelInput.value = (result.model && result.model.trim()) || DEFAULT_MODEL;
 
   if (result.signatureDelimiter) {
     signatureDelimiterInput.value = result.signatureDelimiter;

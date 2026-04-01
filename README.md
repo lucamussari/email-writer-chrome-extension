@@ -1,12 +1,9 @@
-# ChatGPT Email Reviewer
+# Email Writer Chrome Extension
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Contributing](https://img.shields.io/badge/Contributing-Guidelines-blue)](CONTRIBUTING.md)
 [![Code of Conduct](https://img.shields.io/badge/Code%20of%20Conduct-Respectful-orange)](CODE_OF_CONDUCT.md)
-[![Visitors](https://visitor-badge.glitch.me/badge?page_id=hummusonrails.chatgpt-gmail-suggestions-chrome-extension)](https://github.com/hummusonrails/chatgpt-gmail-suggestions-chrome-extension)
-[![Made with Love](https://img.shields.io/badge/Made%20with-Love-ff69b4.svg)](https://shields.io/)
 
-This is a Chrome extension that integrates with Gmail to review email drafts using ChatGPT. The extension allows users to select different writing styles for their emails, such as friendly, business, authoritative, personal, casual, serious, and lighthearted. It then uses ChatGPT to analyze and provide suggestions for the email draft based on the chosen writing style.
+This Chrome extension works in Gmail and helps you refine reply drafts with AI. Choose writing styles (for example friendly, business, authoritative, personal, casual, serious, or lighthearted). The extension sends your draft to a model you pick through [OpenRouter](https://openrouter.ai/) and shows a revised version you can use in your reply.
 
 ## Installation
 To use this extension, you'll need to install it on your Google Chrome browser or any Chromium-based browser. Follow the steps below:
@@ -14,7 +11,7 @@ To use this extension, you'll need to install it on your Google Chrome browser o
 Download or clone the project from GitHub:
 
 ```bash
-git clone https://github.com/hummusonrails/chatgpt-gmail-suggestions-chrome-extension
+git clone <your-repository-url>
 ```
 
 Open the Extensions page in Chrome by navigating to `chrome://extensions/`.
@@ -29,11 +26,9 @@ The extension is now installed and ready to use in your Gmail account.
 
 Before you can use the extension, you'll need to set up a few configuration variables:
 
-#### OpenAI API Key
+#### OpenRouter API key and model
 
-The extension uses the OpenAI API to analyze the email drafts and provide suggestions. To use the API, you'll need an API key from OpenAI. You can obtain an API key by [creating an account on the OpenAI website](https://beta.openai.com/signup/).
-
-To configure the API key, click the extension icon in your browser's toolbar and enter your OpenAI API key in the provided input field. After entering the API key, click the "Save Settings" button to save it for future use.
+The extension calls the OpenRouter API. Create an account and API key at [openrouter.ai](https://openrouter.ai/), then open the extension popup and paste your key. Set an OpenRouter model ID (for example `openai/gpt-4o-mini`). Click **Save Settings**.
 
 #### Signature Delimiter
 
@@ -45,7 +40,7 @@ To configure the signature delimiter, click the extension icon in your browser's
 
 To use the extension, compose a new email draft in Gmail. After writing the email draft, click the extension icon in your browser's toolbar. Select the desired writing style(s) for your email and click the "Review Email" button.
 
-The extension will analyze your email draft using ChatGPT and provide suggestions based on the chosen writing style. You can then choose to use the suggestions to improve your email draft.
+The extension sends your draft to the configured model and shows a revised reply aligned with the styles you selected. You can then paste or adapt that text in Gmail.
 
 ## Code of Conduct
 
