@@ -12,6 +12,16 @@ const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-4o-mini';
 
 const TOOLBAR_HOST_ID = 'email-writer-extension-root';
 
+/** Parent we set to position:relative so the host can fill the compose shell */
+let hostPositionFixEl = null;
+
+const clearHostPositionFix = () => {
+  if (hostPositionFixEl) {
+    hostPositionFixEl.style.removeProperty('position');
+    hostPositionFixEl = null;
+  }
+};
+
 const getComposeBodyElement = () => {
   for (const sel of COMPOSE_BODY_SELECTORS) {
     const el = document.querySelector(sel);
@@ -20,6 +30,50 @@ const getComposeBodyElement = () => {
     }
   }
   return null;
+};
+
+const containsSendOrComposeFooter = (node) => {
+  if (!node?.querySelector) {
+    return false;
+  }
+  return !!(
+    node.querySelector('[aria-label*="Send"]') ||
+    node.querySelector('[data-tooltip*="Send"]') ||
+    node.querySelector('[guidedhelpid="send_button"]') ||
+    node.querySelector('div[role="button"][aria-label^="Send"]')
+  );
+};
+
+/**
+ * Prefer the smallest wrapper that includes the editor and the real footer (Send),
+ * so the launcher stays inside the compose card — not the viewport gutter.
+ */
+const findComposeMountRoot = (composeEl) => {
+  let el = composeEl;
+  let withFooter = null;
+  for (let i = 0; i < 28 && el; i++) {
+    if (containsSendOrComposeFooter(el)) {
+      withFooter = el;
+      break;
+    }
+    el = el.parentElement;
+  }
+  if (withFooter) {
+    return withFooter;
+  }
+
+  const dialogs = Array.from(document.querySelectorAll('[role="dialog"]')).filter((d) =>
+    d.contains(composeEl)
+  );
+  if (!dialogs.length) {
+    return document.body;
+  }
+  dialogs.sort((a, b) => {
+    const ra = a.getBoundingClientRect();
+    const rb = b.getBoundingClientRect();
+    return ra.width * ra.height - rb.width * rb.height;
+  });
+  return dialogs[0];
 };
 
 const htmlToPlainText = (html) => {
@@ -166,7 +220,26 @@ function displaySuggestions(suggestions, quoteSuffix, composeEl) {
 }
 
 const removeToolbar = () => {
+  clearHostPositionFix();
   document.getElementById(TOOLBAR_HOST_ID)?.remove();
+};
+
+const isExtensionModalOpen = () => {
+  const host = document.getElementById(TOOLBAR_HOST_ID);
+  const overlay = host?.querySelector('.ew-overlay');
+  return !!(overlay && !overlay.hidden);
+};
+
+const ensurePositionedMount = (mountParent) => {
+  clearHostPositionFix();
+  if (!mountParent || mountParent === document.body) {
+    return;
+  }
+  const cs = getComputedStyle(mountParent);
+  if (cs.position === 'static') {
+    mountParent.style.position = 'relative';
+    hostPositionFixEl = mountParent;
+  }
 };
 
 const setModalOpen = (host, open) => {
@@ -179,8 +252,11 @@ const setModalOpen = (host, open) => {
   overlay.hidden = !open;
   launcher.setAttribute('aria-expanded', open ? 'true' : 'false');
   if (open && instructions) {
-    window.requestAnimationFrame(() => {
-      instructions.focus();
+    const focusTextarea = () => {
+      instructions.focus({ preventScroll: true });
+    };
+    requestAnimationFrame(() => {
+      requestAnimationFrame(focusTextarea);
     });
   }
 };
@@ -197,8 +273,18 @@ const setLoading = (host, loading) => {
   }
 };
 
+const getLauncherIconMarkup = () => {
+  try {
+    const url = chrome.runtime.getURL('icon48.png');
+    return `<img class="ew-launcher-icon" src="${url}" width="22" height="22" alt="" draggable="false" /><span class="ew-launcher-fallback" aria-hidden="true" hidden>AI</span>`;
+  } catch {
+    return '<span class="ew-launcher-fallback" aria-hidden="true">AI</span>';
+  }
+};
+
 const renderToolbar = (host) => {
   host.classList.add('ew-root');
+  const iconMarkup = getLauncherIconMarkup();
   host.innerHTML = `
     <button
       type="button"
@@ -208,10 +294,10 @@ const renderToolbar = (host) => {
       aria-haspopup="dialog"
       aria-controls="ew-reply-dialog"
     >
-      <span class="ew-launcher-inner" aria-hidden="true">AI</span>
+      ${iconMarkup}
     </button>
     <div class="ew-overlay" hidden>
-      <div class="ew-backdrop" role="presentation"></div>
+      <div class="ew-backdrop" role="presentation" tabindex="-1"></div>
       <div
         id="ew-reply-dialog"
         class="ew-modal"
@@ -223,13 +309,14 @@ const renderToolbar = (host) => {
           <h2 id="ew-modal-title" class="ew-modal-title">AI reply</h2>
           <button type="button" class="ew-modal-dismiss" aria-label="Close">×</button>
         </div>
-        <p class="ew-modal-lead">Describe what you want to say. The reply is written from the thread and inserted into the message.</p>
+        <p class="ew-modal-lead">Describe what you want to say. The reply uses the thread and is inserted into the message.</p>
         <label class="ew-label" for="ew-instructions">Your instructions</label>
         <textarea
           id="ew-instructions"
           class="ew-textarea"
           rows="5"
           placeholder="e.g. Thank them and propose a call next Tuesday afternoon…"
+          autocomplete="off"
         ></textarea>
         <p class="ew-status" role="status" aria-live="polite"></p>
         <div class="ew-actions">
@@ -265,8 +352,8 @@ const renderToolbar = (host) => {
     }
     #${TOOLBAR_HOST_ID} .ew-launcher {
       position: absolute;
-      bottom: 52px;
-      right: 14px;
+      bottom: 10px;
+      right: 52px;
       width: 36px;
       height: 36px;
       padding: 0;
@@ -276,13 +363,21 @@ const renderToolbar = (host) => {
       box-shadow: 0 1px 4px rgba(60, 64, 67, 0.2);
       cursor: pointer;
       font: inherit;
-      font-weight: 700;
-      font-size: 11px;
-      letter-spacing: -0.02em;
-      color: var(--ew-cta);
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+    #${TOOLBAR_HOST_ID} .ew-launcher-icon {
+      display: block;
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    #${TOOLBAR_HOST_ID} .ew-launcher-fallback {
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--ew-cta);
     }
     #${TOOLBAR_HOST_ID} .ew-launcher:hover {
       background: #fef6f5;
@@ -292,43 +387,48 @@ const renderToolbar = (host) => {
       outline: 2px solid var(--ew-cta);
       outline-offset: 2px;
     }
-    #${TOOLBAR_HOST_ID}.ew-root--floating .ew-launcher {
+    #${TOOLBAR_HOST_ID}.ew-root--body-fallback .ew-launcher {
       position: fixed;
-      bottom: 88px;
-      right: 24px;
+      bottom: auto;
+      right: auto;
     }
     #${TOOLBAR_HOST_ID} .ew-overlay {
-      position: fixed;
+      position: absolute;
       inset: 0;
-      z-index: 2147483000;
+      z-index: 50;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px 16px;
+      padding: 16px 12px;
     }
     #${TOOLBAR_HOST_ID} .ew-overlay[hidden] {
       display: none !important;
     }
-    #${TOOLBAR_HOST_ID}.ew-root--in-dialog .ew-overlay {
-      position: absolute;
-      z-index: 20;
+    #${TOOLBAR_HOST_ID}.ew-root--body-fallback .ew-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483000;
     }
     #${TOOLBAR_HOST_ID} .ew-backdrop {
       position: absolute;
       inset: 0;
       background: rgba(32, 33, 36, 0.45);
     }
+    #${TOOLBAR_HOST_ID}.ew-root--body-fallback .ew-backdrop {
+      position: fixed;
+    }
     #${TOOLBAR_HOST_ID} .ew-modal {
       position: relative;
       z-index: 1;
       width: 100%;
       max-width: 420px;
-      max-height: min(90vh, 520px);
+      max-height: min(88vh, 520px);
       overflow: auto;
       background: var(--ew-bg);
       border-radius: 12px;
       box-shadow: 0 12px 48px rgba(32, 33, 36, 0.35);
       padding: 18px 18px 16px;
+      pointer-events: auto;
     }
     #${TOOLBAR_HOST_ID} .ew-modal-header {
       display: flex;
@@ -385,6 +485,7 @@ const renderToolbar = (host) => {
       font: inherit;
       resize: vertical;
       color: #202124;
+      pointer-events: auto;
     }
     #${TOOLBAR_HOST_ID} .ew-textarea:focus {
       outline: none;
@@ -447,9 +548,12 @@ const renderToolbar = (host) => {
   const overlay = host.querySelector('.ew-overlay');
   const backdrop = host.querySelector('.ew-backdrop');
   const dismissBtn = host.querySelector('.ew-modal-dismiss');
+  const modal = host.querySelector('.ew-modal');
   const instructions = host.querySelector('#ew-instructions');
   const generateBtn = host.querySelector('.ew-generate');
   const closeBtn = host.querySelector('.ew-close');
+  const launcherImg = host.querySelector('.ew-launcher-icon');
+  const launcherFallback = host.querySelector('.ew-launcher-fallback');
 
   if (
     !instructions ||
@@ -458,23 +562,42 @@ const renderToolbar = (host) => {
     !launcher ||
     !overlay ||
     !backdrop ||
-    !dismissBtn
+    !dismissBtn ||
+    !modal
   ) {
     return;
   }
 
-  const handleOpen = () => {
-    setModalOpen(host, true);
+  if (launcherImg && launcherFallback) {
+    launcherImg.addEventListener('error', () => {
+      launcherImg.hidden = true;
+      launcherFallback.removeAttribute('hidden');
+    });
+  }
+
+  const stopGmailBubble = (e) => {
+    e.stopPropagation();
   };
+
+  /* Bubble phase only — capture on ancestors would run before the textarea and block focus/typing. */
+  modal.addEventListener('mousedown', stopGmailBubble);
+  modal.addEventListener('click', stopGmailBubble);
+  modal.addEventListener('keydown', stopGmailBubble);
 
   const handleClose = () => {
     setModalOpen(host, false);
   };
 
+  const handleOpen = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setModalOpen(host, true);
+  };
+
   const handleGenerate = async () => {
     const text = instructions.value.trim();
     if (!text) {
-      instructions.focus();
+      instructions.focus({ preventScroll: true });
       const status = host.querySelector('.ew-status');
       if (status) {
         status.textContent = 'Describe what you want the reply to say.';
@@ -517,14 +640,30 @@ const renderToolbar = (host) => {
     });
   };
 
+  launcher.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+  });
   launcher.addEventListener('click', handleOpen);
-  closeBtn.addEventListener('click', handleClose);
-  dismissBtn.addEventListener('click', handleClose);
-  backdrop.addEventListener('click', handleClose);
-  generateBtn.addEventListener('click', handleGenerate);
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handleClose();
+  });
+  dismissBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handleClose();
+  });
+  backdrop.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handleClose();
+  });
+  generateBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handleGenerate();
+  });
 
   overlay.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      e.stopPropagation();
       handleClose();
     }
   });
@@ -535,6 +674,61 @@ const renderToolbar = (host) => {
       handleClose();
     }
   });
+
+  /* Focus trap: when the modal is open, keep focus inside it.
+     Gmail registers capture-phase listeners on the compose container that
+     steal focus back to the compose body. Detecting blur and immediately
+     re-focusing the textarea wins the race without needing to intercept
+     capture-phase events. We skip refocus when focus moves to another
+     element *within* the modal (buttons, dismiss) so those remain clickable. */
+  instructions.addEventListener('blur', (e) => {
+    if (!isExtensionModalOpen()) return;
+    if (e.relatedTarget && host.contains(e.relatedTarget)) return;
+    requestAnimationFrame(() => {
+      if (isExtensionModalOpen()) {
+        instructions.focus({ preventScroll: true });
+      }
+    });
+  });
+};
+
+/**
+ * For the normal (non-body) case the host fills mountParent via inset:0.
+ * CSS `right:52px` would then be measured from mountParent's right edge,
+ * which can be far outside the visible compose box when mountParent is a
+ * large container spanning the full reading pane. Compute the correct values
+ * from the compose body's actual viewport rect relative to mountParent.
+ */
+const positionLauncherInMount = (host, composeEl, mountParent) => {
+  const btn = host.querySelector('.ew-launcher');
+  if (!btn) return;
+  const composeRect = composeEl.getBoundingClientRect();
+  const mountRect = mountParent.getBoundingClientRect();
+  // right/bottom in CSS = distance from the host's right/bottom edge
+  const right = Math.max(4, mountRect.right - composeRect.right + 52);
+  const bottom = Math.max(4, mountRect.bottom - composeRect.bottom + 10);
+  btn.style.right = `${Math.round(right)}px`;
+  btn.style.bottom = `${Math.round(bottom)}px`;
+};
+
+const placeBodyFallbackLauncher = (host, composeEl) => {
+  const r = composeEl.getBoundingClientRect();
+  const btn = host.querySelector('.ew-launcher');
+  if (!btn) {
+    return;
+  }
+  const size = 36;
+  const margin = 10;
+  const top = Math.min(
+    window.innerHeight - size - margin,
+    Math.max(margin, r.bottom - size - 56)
+  );
+  const left = Math.min(
+    window.innerWidth - size - margin,
+    Math.max(margin, r.right - size - margin)
+  );
+  btn.style.top = `${Math.round(top)}px`;
+  btn.style.left = `${Math.round(left)}px`;
 };
 
 const ensureToolbar = () => {
@@ -544,47 +738,54 @@ const ensureToolbar = () => {
     return;
   }
 
-  const dialog = composeEl.closest('[role="dialog"]');
-  const mountParent = dialog || document.body;
+  if (isExtensionModalOpen()) {
+    return;
+  }
 
+  const mountParent = findComposeMountRoot(composeEl);
   let host = document.getElementById(TOOLBAR_HOST_ID);
+
   if (host && host.parentElement !== mountParent) {
     host.remove();
     host = null;
+    clearHostPositionFix();
   }
 
   if (!host) {
+    ensurePositionedMount(mountParent);
     host = document.createElement('div');
     host.id = TOOLBAR_HOST_ID;
     renderToolbar(host);
     mountParent.appendChild(host);
-  } else {
-    mountParent.appendChild(host);
   }
 
-  if (dialog) {
-    host.classList.add('ew-root--in-dialog');
-    host.classList.remove('ew-root--floating');
+  const onBody = mountParent === document.body;
+  if (onBody) {
+    host.classList.add('ew-root--body-fallback');
     host.style.cssText =
-      'position: absolute; inset: 0; z-index: 6; width: 100%; height: 100%; min-height: 0; pointer-events: none;';
+      'position:fixed;inset:0;width:0;height:0;overflow:visible;z-index:10000;pointer-events:none;';
+    placeBodyFallbackLauncher(host, composeEl);
   } else {
-    host.classList.remove('ew-root--in-dialog');
-    host.classList.add('ew-root--floating');
+    host.classList.remove('ew-root--body-fallback');
     host.style.cssText =
-      'position: fixed; inset: 0; z-index: 10000; width: 0; height: 0; pointer-events: none; overflow: visible;';
+      'position:absolute;inset:0;width:100%;height:100%;min-height:0;z-index:6;pointer-events:none;overflow:visible;';
+    positionLauncherInMount(host, composeEl, mountParent);
   }
 };
 
 const scheduleEnsureToolbar = (() => {
   let t = null;
   return () => {
+    if (isExtensionModalOpen()) {
+      return;
+    }
     if (t) {
       clearTimeout(t);
     }
     t = setTimeout(() => {
       t = null;
       ensureToolbar();
-    }, 150);
+    }, 320);
   };
 })();
 
@@ -593,6 +794,16 @@ new MutationObserver(scheduleEnsureToolbar).observe(document.documentElement, {
   subtree: true,
 });
 
+window.addEventListener(
+  'scroll',
+  () => {
+    scheduleEnsureToolbar();
+  },
+  true
+);
+
+window.addEventListener('resize', scheduleEnsureToolbar);
+
 document.addEventListener('focusin', (e) => {
   const body = getComposeBodyElement();
   if (body && e.target && body.contains(e.target)) {
@@ -600,4 +811,4 @@ document.addEventListener('focusin', (e) => {
   }
 });
 
-scheduleEnsureToolbar();
+ensureToolbar();
