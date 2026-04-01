@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Code of Conduct](https://img.shields.io/badge/Code%20of%20Conduct-Respectful-orange)](CODE_OF_CONDUCT.md)
 
-This Chrome extension works in Gmail and helps you refine reply drafts with AI. Choose writing styles (for example friendly, business, authoritative, personal, casual, serious, or lighthearted). The extension sends your draft to a model you pick through [OpenRouter](https://openrouter.ai/) and shows a revised version you can use in your reply.
+This Chrome extension works in Gmail and drafts replies with AI. You describe what you want in a popup on the compose window; the extension uses the thread for context, calls a model you choose through [OpenRouter](https://openrouter.ai/), and inserts the reply into the message body.
 
 ## Installation
 To use this extension, you'll need to install it on your Google Chrome browser or any Chromium-based browser. Follow the steps below:
@@ -24,23 +24,11 @@ The extension is now installed and ready to use in your Gmail account.
 
 ### Configuration
 
-Before you can use the extension, you'll need to set up a few configuration variables:
-
-#### OpenRouter API key and model
-
-The extension calls the OpenRouter API. Create an account and API key at [openrouter.ai](https://openrouter.ai/), then open the extension popup and paste your key. Set an OpenRouter model ID (for example `openai/gpt-4o-mini`). Click **Save Settings**.
-
-#### Signature Delimiter
-
-If your email signature is automatically appended to your email drafts in Gmail, you can specify a delimiter to distinguish the signature from the main content of the email. The extension will use this delimiter to exclude the signature from the analysis.
-
-To configure the signature delimiter, click the extension icon in your browser's toolbar and enter the delimiter in the provided input field. Then click the "Save Settings" button.
+Before you can use the extension, open the extension popup from the toolbar and add your OpenRouter API key and model ID (for example `openai/gpt-4o-mini`). Click **Save settings**.
 
 ## Usage
 
-To use the extension, compose a new email draft in Gmail. After writing the email draft, click the extension icon in your browser's toolbar. Select the desired writing style(s) for your email and click the "Review Email" button.
-
-The extension sends your draft to the configured model and shows a revised reply aligned with the styles you selected. You can then paste or adapt that text in Gmail.
+In Gmail, open a compose or reply window. Click the **AI** button on the compose window (near the bottom). In the popup, describe how you want to reply and click **Insert reply into email**. The generated text is inserted into the message body (quoted thread below the draft is preserved when present).
 
 ## Code of Conduct
 

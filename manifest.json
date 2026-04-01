@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Email Writer Chrome Extension",
   "homepage_url": "https://github.com/lucamussari/email-writer-chrome-extension",
-  "version": "1.1",
-  "description": "Improve Gmail drafts with AI-suggested writing styles via OpenRouter",
+  "version": "1.2",
+  "description": "Generate Gmail replies from your instructions using thread context via OpenRouter",
   "permissions": [
     "activeTab",
     "storage"
