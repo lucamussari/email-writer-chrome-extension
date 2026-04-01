@@ -165,6 +165,15 @@ async function sendToOpenRouter(payload, userInstruction, apiKey, model) {
 
   const userContent = buildUserPrompt(payload, userInstruction);
 
+  const requestBody = {
+    messages: [{ role: 'user', content: userContent }],
+    model: resolvedModel,
+    max_tokens: 2048,
+    temperature: 0.8,
+  };
+
+  console.log('Sending to OpenRouter:', { model: resolvedModel, body: requestBody });
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -173,17 +182,22 @@ async function sendToOpenRouter(payload, userInstruction, apiKey, model) {
       'HTTP-Referer': location.origin,
       'X-Title': 'Email Writer Chrome Extension',
     },
-    body: JSON.stringify({
-      messages: [{ role: 'user', content: userContent }],
-      model: resolvedModel,
-      max_tokens: 2048,
-      n: 1,
-      stop: null,
-      temperature: 0.8,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   const data = await response.json();
+
+  if (!response.ok || data.error) {
+    const errorMsg = data.error?.message || data.error?.code || `HTTP ${response.status}: ${response.statusText}`;
+    console.error('OpenRouter API error:', {
+      status: response.status,
+      model: resolvedModel,
+      error: data.error,
+      fullResponse: data,
+    });
+    throw new Error(errorMsg);
+  }
+
   if (data.choices && data.choices.length > 0) {
     displaySuggestions(
       data.choices[0].message.content,
@@ -191,7 +205,7 @@ async function sendToOpenRouter(payload, userInstruction, apiKey, model) {
       payload.composeEl
     );
   } else {
-    console.error('No suggestions received', data.error || data);
+    console.error('No suggestions received', data);
     throw new Error(data.error?.message || 'No reply from model');
   }
 }
@@ -211,9 +225,27 @@ function displaySuggestions(suggestions, quoteSuffix, composeEl) {
   }
 
   if (element.getAttribute('contenteditable') === 'true') {
+    // Focus and select all existing content
     element.focus();
-    document.execCommand('selectAll', false, null);
-    document.execCommand('insertHTML', false, newText);
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // Delete selected content
+    range.deleteContents();
+
+    // Insert new HTML using insertAdjacentHTML (reliable in Gmail)
+    element.insertAdjacentHTML('beforeend', newText);
+
+    // Move cursor to end
+    element.focus();
+    selection.removeAllRanges();
+    const newRange = document.createRange();
+    newRange.selectNodeContents(element);
+    newRange.collapse(false);
+    selection.addRange(newRange);
   } else {
     element.innerHTML = newText;
   }
@@ -352,8 +384,8 @@ const renderToolbar = (host) => {
     }
     #${TOOLBAR_HOST_ID} .ew-launcher {
       position: absolute;
-      bottom: 10px;
-      right: 52px;
+      top: 48px;
+      right: 12px;
       width: 36px;
       height: 36px;
       padding: 0;
@@ -632,7 +664,15 @@ const renderToolbar = (host) => {
       } catch (err) {
         console.error(err);
         if (statusEl) {
-          statusEl.textContent = 'Something went wrong. Check the console or your API key.';
+          let msg = 'Something went wrong. Check the console or your API key.';
+          if (err.message?.includes('No endpoints found')) {
+            msg = `Model "${result.model}" is temporarily unavailable. Try a different model from the popup.`;
+          } else if (err.message?.includes('Authentication') || err.message?.includes('Unauthorized')) {
+            msg = 'Invalid API key. Check your OpenRouter API key in the extension popup.';
+          } else if (err.message?.includes('not found') || err.message?.includes('does not exist')) {
+            msg = `Model "${result.model}" not found. Check the model ID in the popup.`;
+          }
+          statusEl.textContent = msg;
         }
       } finally {
         setLoading(host, false);
@@ -704,11 +744,12 @@ const positionLauncherInMount = (host, composeEl, mountParent) => {
   if (!btn) return;
   const composeRect = composeEl.getBoundingClientRect();
   const mountRect = mountParent.getBoundingClientRect();
-  // right/bottom in CSS = distance from the host's right/bottom edge
-  const right = Math.max(4, mountRect.right - composeRect.right + 52);
-  const bottom = Math.max(4, mountRect.bottom - composeRect.bottom + 10);
+  // Position below any existing Gmail icons at top-right of compose box
+  const right = Math.max(4, mountRect.right - composeRect.right + 12);
+  const top = Math.max(48, composeRect.top - mountRect.top + 48); // 48px down to avoid existing icons
   btn.style.right = `${Math.round(right)}px`;
-  btn.style.bottom = `${Math.round(bottom)}px`;
+  btn.style.top = `${Math.round(top)}px`;
+  btn.style.bottom = 'auto';
 };
 
 const placeBodyFallbackLauncher = (host, composeEl) => {
@@ -717,18 +758,13 @@ const placeBodyFallbackLauncher = (host, composeEl) => {
   if (!btn) {
     return;
   }
-  const size = 36;
   const margin = 10;
-  const top = Math.min(
-    window.innerHeight - size - margin,
-    Math.max(margin, r.bottom - size - 56)
-  );
-  const left = Math.min(
-    window.innerWidth - size - margin,
-    Math.max(margin, r.right - size - margin)
-  );
+  // Position below any existing icons at top-right of compose box
+  const top = Math.max(margin + 40, r.top + 48); // 48px down to avoid existing icons
+  const right = Math.max(margin, window.innerWidth - r.right + 12);
   btn.style.top = `${Math.round(top)}px`;
-  btn.style.left = `${Math.round(left)}px`;
+  btn.style.right = `${Math.round(right)}px`;
+  btn.style.left = 'auto';
 };
 
 const ensureToolbar = () => {

@@ -30,16 +30,36 @@
           />
           <button type="button" id="editApiKeyButton" class="btn btn-cta btn-inline">Edit key</button>
 
-          <label class="field-label field-label-spaced" for="modelInput">Model ID</label>
+          <label class="field-label field-label-spaced" for="modelSelect">Model</label>
+          <select id="modelSelect" class="field-input">
+            <optgroup label="Recommended (Reliable)">
+              <option value="openai/gpt-4o-mini">openai/gpt-4o-mini (Fast, cheap, reliable)</option>
+              <option value="openai/gpt-4o">openai/gpt-4o (Best quality)</option>
+              <option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet (Great writing)</option>
+              <option value="google/gemini-flash-1.5">google/gemini-flash-1.5 (Fast, cheap)</option>
+            </optgroup>
+            <optgroup label="Free Models (May be slow/unavailable)">
+              <option value="openrouter/free">openrouter/free (Auto-pick free model)</option>
+              <option value="meta-llama/llama-3.1-70b-instruct:free">llama-3.1-70b-instruct:free</option>
+              <option value="meta-llama/llama-3.1-8b-instruct:free">llama-3.1-8b-instruct:free (Faster)</option>
+              <option value="mistralai/mistral-7b-instruct:free">mistral-7b-instruct:free</option>
+              <option value="google/gemma-2-9b-it:free">gemma-2-9b-it:free</option>
+              <option value="qwen/qwen-2.5-72b-instruct:free">qwen-2.5-72b-instruct:free</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option value="custom">-- Custom model ID --</option>
+            </optgroup>
+          </select>
           <input
             type="text"
             id="modelInput"
             class="field-input"
-            placeholder="openai/gpt-4o-mini"
+            placeholder="Enter custom model ID..."
             autocomplete="off"
             spellcheck="false"
+            style="display: none; margin-top: 8px;"
           />
-          <p class="field-hint">Examples: <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3.5-sonnet</code></p>
+          <p class="field-hint" id="modelHint">Free models are $0 but often overloaded. Paid models like gpt-4o-mini are fast & reliable.</p>
 
           <button type="button" id="saveButton" class="btn btn-cta btn-block">Save settings</button>
         </div>
