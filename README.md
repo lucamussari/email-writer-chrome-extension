@@ -11,7 +11,7 @@ To use this extension, you'll need to install it on your Google Chrome browser o
 Download or clone the project from GitHub:
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/lucamussari/email-writer-chrome-extension.git
 ```
 
 Open the Extensions page in Chrome by navigating to `chrome://extensions/`.
